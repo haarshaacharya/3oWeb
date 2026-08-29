@@ -1,21 +1,94 @@
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+const quickPrompts = [
+  {
+    icon: "☕",
+    title: "Restaurant",
+    description: "Premium restaurant website",
+    prompt:
+      "Create a premium modern restaurant website with a beautiful navbar, cinematic hero section, menu, about section, gallery, customer reviews, reservation CTA, location/contact section and footer. Use excellent typography, spacing, animations and a premium color palette.",
+  },
+  {
+    icon: "🚀",
+    title: "SaaS",
+    description: "Modern SaaS landing page",
+    prompt:
+      "Create a premium modern SaaS landing page with navbar, hero section, product showcase, features, statistics, pricing cards, testimonials, FAQ, strong CTA and footer. Make it look like a high-end startup website with excellent UI/UX.",
+  },
+  {
+    icon: "🎨",
+    title: "Portfolio",
+    description: "Creative personal portfolio",
+    prompt:
+      "Create a premium creative portfolio website with navbar, impressive hero section, about me, skills, selected projects, experience, testimonials, contact section and footer. Use modern animations, elegant typography and a visually impressive layout.",
+  },
+  {
+    icon: "🛍️",
+    title: "Online Store",
+    description: "Premium ecommerce website",
+    prompt:
+      "Create a premium ecommerce website with navbar, hero banner, product categories, featured products, product cards, special offer section, testimonials, newsletter signup, shopping CTA and footer. Make it look like a professional modern fashion/lifestyle brand.",
+  },
+];
+
+const loadingSteps = [
+  {
+    title: "Understanding your idea",
+    description: "Analyzing your website requirements",
+  },
+  {
+    title: "Planning the structure",
+    description: "Creating sections and page layout",
+  },
+  {
+    title: "Designing the interface",
+    description: "Choosing colors, typography and spacing",
+  },
+  {
+    title: "Writing the code",
+    description: "Generating your complete website",
+  },
+  {
+    title: "Finishing touches",
+    description: "Polishing your website for preview",
+  },
+];
+
+const maxLength = 4000;
 
 export default function Home() {
+  const router = useRouter();
+
   const [prompt, setPrompt] = useState("");
-  const [html, setHtml] = useState("");
-  const [editPrompt, setEditPrompt] = useState("");
   const [loading, setLoading] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState("");
 
-  async function generateWebsite() {
-    if (!prompt.trim()) return;
+  useEffect(() => {
+    const savedPrompt = sessionStorage.getItem("websitePrompt");
+
+    if (savedPrompt) {
+      setPrompt(savedPrompt);
+    }
+  }, []);
+
+  async function generateWebsite(e?: FormEvent) {
+    e?.preventDefault();
+
+    if (!prompt.trim() || loading) return;
 
     setLoading(true);
     setError("");
-    setHtml("");
+    setLoadingStep(0);
+
+    const interval = setInterval(() => {
+      setLoadingStep((current) =>
+        current < loadingSteps.length - 1 ? current + 1 : current
+      );
+    }, 2200);
 
     try {
       const response = await fetch("/api/generate", {
@@ -23,273 +96,378 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ prompt }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Generation failed");
-      }
-
-      setHtml(data.html);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function editWebsite() {
-    if (!editPrompt.trim() || !html) return;
-
-    setEditing(true);
-    setError("");
-
-    try {
-      const response = await fetch("/api/edit", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
-          html,
-          instruction: editPrompt,
+          prompt: prompt.trim(),
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Editing failed");
+        throw new Error(data.error || "Failed to generate website");
       }
 
-      setHtml(data.html);
-      setEditPrompt("");
+      sessionStorage.setItem("generatedWebsite", data.html);
+      sessionStorage.setItem("websitePrompt", prompt.trim());
+
+      clearInterval(interval);
+
+      router.push("/preview");
     } catch (err) {
+      clearInterval(interval);
+
       setError(
         err instanceof Error
           ? err.message
-          : "Something went wrong"
+          : "Something went wrong. Please try again."
       );
-    } finally {
-      setEditing(false);
+
+      setLoading(false);
     }
   }
 
-  function startNewWebsite() {
-    setHtml("");
+  function useTemplate(template: string) {
+    setPrompt(template);
+    setError("");
+
+    setTimeout(() => {
+      document.getElementById("prompt-box")?.focus();
+    }, 50);
+  }
+
+  function clearPrompt() {
     setPrompt("");
-    setEditPrompt("");
     setError("");
   }
 
   return (
-    <main className="min-h-screen bg-[#09090b] text-white">
-      {/* Header */}
-      <header className="flex h-16 items-center justify-between border-b border-white/10 px-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white font-bold text-black">
-            AI
-          </div>
+    <main className="min-h-screen overflow-hidden bg-[#070708] text-white">
+      {/* Background */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute left-1/2 top-[-300px] h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-white/[0.035] blur-[140px]" />
 
-          <span className="text-lg font-semibold">
-            WebBuilder
-          </span>
-        </div>
+        <div className="absolute left-[-150px] top-[35%] h-[400px] w-[400px] rounded-full bg-purple-500/[0.025] blur-[140px]" />
 
-        <div className="flex items-center gap-3">
-          <button className="rounded-lg px-4 py-2 text-sm text-zinc-400 hover:bg-white/5 hover:text-white">
-            Projects
+        <div className="absolute right-[-150px] top-[50%] h-[400px] w-[400px] rounded-full bg-blue-500/[0.02] blur-[140px]" />
+      </div>
+
+      {/* Navbar */}
+      <header className="relative z-20 border-b border-white/[0.07] bg-[#070708]/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-[76px] max-w-[1500px] items-center justify-between px-5 sm:px-8 lg:px-10">
+          <button
+            onClick={() => router.push("/")}
+            className="group flex items-center gap-3"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-lg font-bold text-black shadow-[0_0_30px_rgba(255,255,255,0.08)] transition group-hover:scale-105">
+              AI
+            </div>
+
+            <div className="text-left">
+              <div className="text-[17px] font-semibold tracking-tight">
+                WebBuilder
+              </div>
+
+              <div className="text-[11px] text-white/35">
+                AI Website Builder
+              </div>
+            </div>
           </button>
 
-          <button className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5">
-            Sign in
+          <button
+            onClick={() => router.push("/projects")}
+            className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2.5 text-sm text-white/70 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+          >
+            Projects
           </button>
         </div>
       </header>
 
-      {/* Generator */}
-      {!html && (
-        <section className="flex min-h-[calc(100vh-64px)] flex-col items-center px-6 py-16">
-          <div className="w-full max-w-4xl text-center">
-            <div className="mb-6 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300">
-              ✨ AI Website Builder
+      {/* Hero */}
+      <section className="relative z-10 mx-auto max-w-[1150px] px-5 pb-24 pt-20 text-center sm:pt-24 lg:pt-28">
+        {/* Badge */}
+        <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/65 shadow-[0_0_30px_rgba(255,255,255,0.025)]">
+          <span className="text-base">✨</span>
+
+          <span>AI Website Builder</span>
+
+          <span className="ml-1 h-1.5 w-1.5 rounded-full bg-green-400" />
+          <span className="text-xs text-green-400/80">Local AI</span>
+        </div>
+
+        {/* Heading */}
+        <h1 className="mx-auto max-w-[1000px] text-5xl font-bold leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-[82px]">
+          Build websites
+          <br />
+          <span className="bg-gradient-to-b from-white/55 to-white/20 bg-clip-text text-transparent">
+            with just one prompt.
+          </span>
+        </h1>
+
+        <p className="mx-auto mt-8 max-w-[700px] text-base leading-7 text-white/45 sm:text-lg">
+          Describe your idea and AI will design, write and build a complete
+          website for you in seconds.
+        </p>
+
+        {/* Prompt Box */}
+        <form onSubmit={generateWebsite} className="mx-auto mt-12 max-w-[920px]">
+          <div
+            className={`relative overflow-hidden rounded-2xl border bg-[#0d0d0f] text-left shadow-2xl transition-all ${
+              loading
+                ? "border-white/20 shadow-[0_0_80px_rgba(255,255,255,0.06)]"
+                : "border-white/10 hover:border-white/15"
+            }`}
+          >
+            {/* Prompt Header */}
+            <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3">
+              <div className="flex items-center gap-2 text-xs text-white/35">
+                <span className="text-base">✨</span>
+                Describe your website
+              </div>
+
+              {prompt.length > 0 && !loading && (
+                <button
+                  type="button"
+                  onClick={clearPrompt}
+                  className="text-xs text-white/25 transition hover:text-white/60"
+                >
+                  Clear
+                </button>
+              )}
             </div>
 
-            <h1 className="text-5xl font-bold tracking-tight md:text-7xl">
-              Build websites
-              <br />
-              <span className="text-zinc-500">
-                with just one prompt.
-              </span>
-            </h1>
+            {/* Textarea */}
+            <textarea
+              id="prompt-box"
+              value={prompt}
+              onChange={(e) =>
+                setPrompt(e.target.value.slice(0, maxLength))
+              }
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  generateWebsite();
+                }
+              }}
+              disabled={loading}
+              placeholder="e.g. Create a premium coffee shop website with a dark brown theme, menu, reviews and contact section..."
+              className="min-h-[190px] w-full resize-none bg-transparent px-6 py-6 text-[15px] leading-7 text-white outline-none placeholder:text-white/20 disabled:opacity-50 sm:min-h-[205px] sm:px-7"
+            />
 
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-400">
-              Describe the website you want and AI will
-              generate it for you.
-            </p>
-
-            {/* Prompt Box */}
-            <div className="mx-auto mt-10 max-w-3xl rounded-2xl border border-white/10 bg-[#111113] p-3 shadow-2xl">
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe the website you want to build..."
-                className="min-h-32 w-full resize-none bg-transparent p-4 text-lg text-white outline-none placeholder:text-zinc-600"
-                maxLength={2000}
-              />
-
-              <div className="flex items-center justify-between border-t border-white/10 pt-3">
-                <span className="px-2 text-sm text-zinc-600">
-                  {prompt.length}/2000
+            {/* Toolbar */}
+            <div className="flex flex-col gap-4 border-t border-white/[0.07] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div className="flex items-center gap-3">
+                <span
+                  className={`text-xs ${
+                    prompt.length > maxLength * 0.9
+                      ? "text-orange-400"
+                      : "text-white/25"
+                  }`}
+                >
+                  {prompt.length}/{maxLength}
                 </span>
 
-                <button
-                  onClick={generateWebsite}
-                  disabled={!prompt.trim() || loading}
-                  className="rounded-xl bg-white px-6 py-3 font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-30"
-                >
-                  {loading
-                    ? "✨ Building..."
-                    : "✨ Generate"}
-                </button>
-              </div>
-            </div>
-
-            {error && (
-              <div className="mx-auto mt-5 max-w-3xl rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-                {error}
-              </div>
-            )}
-
-            {/* Examples */}
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              {[
-                "Portfolio website",
-                "SaaS landing page",
-                "Restaurant website",
-                "Online store",
-              ].map((item) => (
-                <button
-                  key={item}
-                  onClick={() =>
-                    setPrompt(
-                      `Create a modern ${item.toLowerCase()}`
-                    )
-                  }
-                  className="rounded-full border border-white/10 px-4 py-2 text-sm text-zinc-400 transition hover:border-white/20 hover:bg-white/5 hover:text-white"
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Website Editor */}
-      {html && (
-        <section className="min-h-[calc(100vh-64px)] p-4 md:p-6">
-          <div className="mx-auto flex max-w-[1600px] flex-col gap-4">
-            {/* Editor Header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold">
-                  Your Website
-                </h2>
-
-                <p className="text-sm text-zinc-500">
-                  Generated by AI
-                </p>
+                <span className="hidden text-xs text-white/15 sm:inline">
+                  Ctrl + Enter to generate
+                </span>
               </div>
 
               <button
-                onClick={startNewWebsite}
-                className="rounded-lg border border-white/10 px-4 py-2 text-sm transition hover:bg-white/5"
+                type="submit"
+                disabled={!prompt.trim() || loading}
+                className="flex min-w-[150px] items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black transition hover:-translate-y-0.5 hover:bg-white/90 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/25 disabled:hover:translate-y-0"
               >
-                ← New Website
+                {loading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-black/20 border-t-black" />
+                    Building...
+                  </>
+                ) : (
+                  <>
+                    <span>✨</span>
+                    Generate
+                  </>
+                )}
               </button>
             </div>
 
-            {/* AI Edit Bar */}
-            <div className="rounded-2xl border border-white/10 bg-[#111113] p-3">
-              <div className="flex flex-col gap-3 md:flex-row">
-                <div className="flex flex-1 items-center rounded-xl border border-white/10 bg-black/30 px-4">
-                  <span className="mr-3 text-lg">
-                    ✨
+            {/* Loading Progress */}
+            {loading && (
+              <div className="border-t border-white/[0.06] px-6 py-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="text-xs font-medium text-white/70">
+                    {loadingSteps[loadingStep].title}
                   </span>
 
-                  <input
-                    value={editPrompt}
-                    onChange={(e) =>
-                      setEditPrompt(e.target.value)
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        editWebsite();
-                      }
-                    }}
-                    placeholder="Ask AI to change your website..."
-                    className="h-12 w-full bg-transparent text-sm text-white outline-none placeholder:text-zinc-600"
-                  />
+                  <span className="text-xs text-white/25">
+                    {loadingStep + 1}/{loadingSteps.length}
+                  </span>
                 </div>
 
-                <button
-                  onClick={editWebsite}
-                  disabled={
-                    !editPrompt.trim() || editing
-                  }
-                  className="rounded-xl bg-white px-6 py-3 font-medium text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-30"
-                >
-                  {editing
-                    ? "✨ Updating..."
-                    : "✨ Update"}
-                </button>
-              </div>
+                <div className="mb-3 flex gap-1.5">
+                  {loadingSteps.map((_, index) => (
+                    <div
+                      key={index}
+                      className={`h-1 flex-1 rounded-full transition-all duration-500 ${
+                        index <= loadingStep
+                          ? "bg-white"
+                          : "bg-white/[0.08]"
+                      }`}
+                    />
+                  ))}
+                </div>
 
-              {/* Quick Actions */}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {[
-                  "Make it more premium",
-                  "Improve the hero section",
-                  "Add a pricing section",
-                  "Make it mobile responsive",
-                  "Use better colors",
-                ].map((action) => (
-                  <button
-                    key={action}
-                    onClick={() => setEditPrompt(action)}
-                    className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-zinc-400 transition hover:bg-white/5 hover:text-white"
-                  >
-                    {action}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {error && (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-                {error}
+                <p className="text-xs text-white/30">
+                  {loadingSteps[loadingStep].description}
+                </p>
               </div>
             )}
+          </div>
 
-            {/* Preview */}
-            <div className="overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl">
-              <iframe
-                title="Generated Website"
-                srcDoc={html}
-                sandbox="allow-scripts allow-forms"
-                className="h-[calc(100vh-260px)] min-h-[600px] w-full border-0"
-              />
+          {/* Error */}
+          {error && (
+            <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-left text-sm text-red-300">
+              {error}
+            </div>
+          )}
+        </form>
+
+        {/* Quick Suggestions */}
+        <div className="mx-auto mt-7 flex max-w-[920px] flex-wrap justify-center gap-2">
+          {[
+            "Coffee shop",
+            "SaaS startup",
+            "Restaurant",
+            "Portfolio",
+            "E-commerce",
+          ].map((item) => (
+            <button
+              key={item}
+              type="button"
+              disabled={loading}
+              onClick={() =>
+                useTemplate(
+                  `Create a premium modern ${item.toLowerCase()} website with beautiful UI, responsive design, impressive hero section, professional sections, animations and footer.`
+                )
+              }
+              className="rounded-full border border-white/[0.08] bg-white/[0.02] px-4 py-2 text-xs text-white/40 transition hover:border-white/15 hover:bg-white/[0.05] hover:text-white/75 disabled:opacity-30"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+
+        {/* Quick Start */}
+        <div className="mx-auto mt-24 max-w-[1050px]">
+          <div className="mb-6 text-left">
+            <div className="text-sm font-medium text-white/75">
+              Start with a template
+            </div>
+
+            <div className="mt-1 text-xs text-white/30">
+              Pick a starting point and customize it with your own prompt.
             </div>
           </div>
-        </section>
-      )}
+
+          <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-2 lg:grid-cols-4">
+            {quickPrompts.map((item) => (
+              <button
+                key={item.title}
+                type="button"
+                disabled={loading}
+                onClick={() => useTemplate(item.prompt)}
+                className="group rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-left transition duration-300 hover:-translate-y-1 hover:border-white/15 hover:bg-white/[0.045] disabled:opacity-30"
+              >
+                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.06] text-xl transition group-hover:bg-white/10">
+                  {item.icon}
+                </div>
+
+                <div className="text-sm font-medium text-white/80">
+                  {item.title}
+                </div>
+
+                <div className="mt-1 text-xs text-white/30">
+                  {item.description}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Features */}
+        <div className="mx-auto mt-24 max-w-[950px] overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.015]">
+          <div className="grid grid-cols-1 sm:grid-cols-3">
+            <Feature
+              icon="⚡"
+              title="Generate in seconds"
+              text="Turn a simple idea into a complete website using local AI."
+            />
+
+            <Feature
+              icon="🎨"
+              title="Premium design"
+              text="AI creates polished layouts, typography, spacing and responsive UI."
+            />
+
+            <Feature
+              icon="💻"
+              title="Real HTML"
+              text="Get actual website code that can be previewed and customized."
+            />
+          </div>
+        </div>
+
+        {/* Bottom CTA */}
+        <div className="mx-auto mt-24 max-w-[700px]">
+          <p className="text-sm text-white/25">
+            Your idea → AI design → Real website
+          </p>
+
+          <h2 className="mt-4 text-2xl font-semibold tracking-tight text-white/80 sm:text-3xl">
+            Build your next website with AI.
+          </h2>
+
+          <p className="mt-3 text-sm leading-6 text-white/30">
+            No templates to manually edit. Just describe what you want.
+          </p>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="relative z-10 border-t border-white/[0.07]">
+        <div className="mx-auto flex max-w-[1500px] flex-col items-center justify-between gap-3 px-6 py-7 text-xs text-white/25 sm:flex-row lg:px-10">
+          <div>© 2026 WebBuilder. Built with AI.</div>
+
+          <div className="flex gap-4">
+            <span>AI Powered</span>
+            <span>•</span>
+            <span>Local AI</span>
+            <span>•</span>
+            <span>Ollama</span>
+          </div>
+        </div>
+      </footer>
     </main>
+  );
+}
+
+function Feature({
+  icon,
+  title,
+  text,
+}: {
+  icon: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="border-b border-white/[0.07] p-6 text-left last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
+      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.05] text-lg">
+        {icon}
+      </div>
+
+      <div className="text-sm font-medium text-white/75">{title}</div>
+
+      <div className="mt-2 text-xs leading-5 text-white/30">{text}</div>
+    </div>
   );
 }

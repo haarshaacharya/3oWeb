@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const quickPrompts = [
@@ -32,6 +32,14 @@ const quickPrompts = [
     prompt:
       "Create a premium ecommerce website with navbar, hero banner, product categories, featured products, product cards, special offer section, testimonials, newsletter signup, shopping CTA and footer. Make it look like a professional modern fashion/lifestyle brand.",
   },
+];
+
+const quickSuggestions = [
+  "Coffee shop",
+  "SaaS startup",
+  "Restaurant",
+  "Portfolio",
+  "E-commerce",
 ];
 
 const loadingSteps = [
@@ -67,98 +75,285 @@ export default function Home() {
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const savedPrompt = sessionStorage.getItem("websitePrompt");
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    if (savedPrompt) {
-      setPrompt(savedPrompt);
+  useEffect(() => {
+    try {
+      const savedPrompt =
+        sessionStorage.getItem("websitePrompt") ||
+        localStorage.getItem("websitePrompt") ||
+        "";
+
+      if (savedPrompt) {
+        setPrompt(savedPrompt);
+      }
+    } catch (error) {
+      console.error("Prompt restore error:", error);
     }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
   }, []);
+
+  function startLoadingSteps() {
+    setLoadingStep(0);
+
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    intervalRef.current = setInterval(() => {
+      setLoadingStep((current) => {
+        if (current < loadingSteps.length - 1) {
+          return current + 1;
+        }
+
+        return current;
+      });
+    }, 1800);
+  }
+
+  function stopLoadingSteps() {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }
+
+  function isValidGeneratedHTML(html: unknown): html is string {
+    if (typeof html !== "string") {
+      return false;
+    }
+
+    const value = html.trim().toLowerCase();
+
+    return (
+      value.length > 100 &&
+      value.includes("<!doctype html>") &&
+      value.includes("<html") &&
+      value.includes("<head") &&
+      value.includes("<body") &&
+      value.includes("</body>") &&
+      value.includes("</html>")
+    );
+  }
 
   async function generateWebsite(e?: FormEvent) {
     e?.preventDefault();
 
-    if (!prompt.trim() || loading) return;
+    const cleanPrompt = prompt.trim();
+
+    if (!cleanPrompt || loading) {
+      return;
+    }
+
+    if (cleanPrompt.length > maxLength) {
+      setError(
+        `Your prompt is too long. Maximum ${maxLength} characters allowed.`
+      );
+      return;
+    }
 
     setLoading(true);
     setError("");
-    setLoadingStep(0);
-
-    const interval = setInterval(() => {
-      setLoadingStep((current) =>
-        current < loadingSteps.length - 1 ? current + 1 : current
-      );
-    }, 2200);
+    startLoadingSteps();
 
     try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt: prompt.trim(),
-        }),
-      });
+      const controller = new AbortController();
 
-      const data = await response.json();
+      const timeout = setTimeout(() => {
+        controller.abort();
+      }, 180000);
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to generate website");
+      let response: Response;
+
+      try {
+        response = await fetch("/api/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: cleanPrompt,
+          }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
       }
 
-      sessionStorage.setItem("generatedWebsite", data.html);
-      sessionStorage.setItem("websitePrompt", prompt.trim());
+      let data: any = null;
 
-      clearInterval(interval);
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response. Please try again."
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            `Website generation failed. Server returned ${response.status}.`
+        );
+      }
+
+      const generatedHTML = data?.html;
+
+      if (!isValidGeneratedHTML(generatedHTML)) {
+        throw new Error(
+          "AI generated incomplete HTML. Please try again with a slightly more detailed prompt."
+        );
+      }
+
+      /*
+       * Save generated website.
+       *
+       * sessionStorage:
+       * Used by /preview immediately.
+       *
+       * localStorage:
+       * Gives us a backup if sessionStorage is unavailable
+       * or the preview page is refreshed.
+       */
+      try {
+        sessionStorage.setItem("generatedHTML", generatedHTML);
+        sessionStorage.setItem("websitePrompt", cleanPrompt);
+
+        localStorage.setItem("generatedWebsite", generatedHTML);
+        localStorage.setItem("websiteHtml", generatedHTML);
+        localStorage.setItem("websitePrompt", cleanPrompt);
+      } catch (storageError) {
+        console.error("Storage error:", storageError);
+
+        /*
+         * If storage fails, still continue to preview.
+         * The error is not allowed to block navigation.
+         */
+      }
+
+      setLoadingStep(loadingSteps.length - 1);
+
+      stopLoadingSteps();
+
+      /*
+       * Small delay so the final loading state can be seen.
+       */
+      await new Promise((resolve) => setTimeout(resolve, 250));
 
       router.push("/preview");
     } catch (err) {
-      clearInterval(interval);
+      stopLoadingSteps();
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong. Please try again."
-      );
+      console.error("Website generation error:", err);
+
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError(
+          "Generation is taking too long. Make sure Ollama is running and try again."
+        );
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
 
       setLoading(false);
     }
   }
 
   function useTemplate(template: string) {
+    if (loading) {
+      return;
+    }
+
     setPrompt(template);
     setError("");
+
+    try {
+      sessionStorage.setItem("websitePrompt", template);
+    } catch {
+      // Ignore storage errors.
+    }
+
+    setTimeout(() => {
+      const textarea = document.getElementById("prompt-box");
+
+      if (textarea instanceof HTMLTextAreaElement) {
+        textarea.focus();
+
+        textarea.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+    }, 80);
+  }
+
+  function useSuggestion(item: string) {
+    const generatedPrompt = `Create a premium modern ${item.toLowerCase()} website with beautiful UI, responsive design, an impressive hero section, professional sections, smooth animations, high-quality typography, strong CTA buttons and a polished footer. Make it look like a real professional commercial website, not a basic HTML template.`;
+
+    useTemplate(generatedPrompt);
+  }
+
+  function clearPrompt() {
+    if (loading) {
+      return;
+    }
+
+    setPrompt("");
+    setError("");
+
+    try {
+      sessionStorage.removeItem("websitePrompt");
+    } catch {
+      // Ignore storage errors.
+    }
 
     setTimeout(() => {
       document.getElementById("prompt-box")?.focus();
     }, 50);
   }
 
-  function clearPrompt() {
-    setPrompt("");
-    setError("");
-  }
-
   return (
-    <main className="min-h-screen overflow-hidden bg-[#070708] text-white">
-      {/* Background */}
+    <main className="min-h-screen overflow-x-hidden bg-[#070708] text-white">
+      {/* =========================================
+          BACKGROUND
+      ========================================== */}
+
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-[-300px] h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-white/[0.035] blur-[140px]" />
+        <div className="absolute left-1/2 top-[-320px] h-[650px] w-[950px] -translate-x-1/2 rounded-full bg-white/[0.035] blur-[150px]" />
 
-        <div className="absolute left-[-150px] top-[35%] h-[400px] w-[400px] rounded-full bg-purple-500/[0.025] blur-[140px]" />
+        <div className="absolute left-[-180px] top-[32%] h-[450px] w-[450px] rounded-full bg-purple-500/[0.025] blur-[150px]" />
 
-        <div className="absolute right-[-150px] top-[50%] h-[400px] w-[400px] rounded-full bg-blue-500/[0.02] blur-[140px]" />
+        <div className="absolute right-[-180px] top-[48%] h-[450px] w-[450px] rounded-full bg-blue-500/[0.02] blur-[150px]" />
+
+        <div
+          className="absolute inset-0 opacity-[0.025]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)",
+            backgroundSize: "70px 70px",
+          }}
+        />
       </div>
 
-      {/* Navbar */}
+      {/* =========================================
+          NAVBAR
+      ========================================== */}
+
       <header className="relative z-20 border-b border-white/[0.07] bg-[#070708]/80 backdrop-blur-xl">
         <div className="mx-auto flex h-[76px] max-w-[1500px] items-center justify-between px-5 sm:px-8 lg:px-10">
           <button
+            type="button"
             onClick={() => router.push("/")}
             className="group flex items-center gap-3"
+            aria-label="Go to WebBuilder home"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-lg font-bold text-black shadow-[0_0_30px_rgba(255,255,255,0.08)] transition group-hover:scale-105">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-sm font-black text-black shadow-[0_0_35px_rgba(255,255,255,0.08)] transition duration-300 group-hover:scale-105">
               AI
             </div>
 
@@ -174,31 +369,41 @@ export default function Home() {
           </button>
 
           <button
+            type="button"
             onClick={() => router.push("/projects")}
-            className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2.5 text-sm text-white/70 transition hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+            className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2.5 text-sm text-white/70 transition duration-300 hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
           >
             Projects
           </button>
         </div>
       </header>
 
-      {/* Hero */}
+      {/* =========================================
+          HERO
+      ========================================== */}
+
       <section className="relative z-10 mx-auto max-w-[1150px] px-5 pb-24 pt-20 text-center sm:pt-24 lg:pt-28">
         {/* Badge */}
-        <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/65 shadow-[0_0_30px_rgba(255,255,255,0.025)]">
+
+        <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-4 py-2 text-sm text-white/65 shadow-[0_0_35px_rgba(255,255,255,0.025)]">
           <span className="text-base">✨</span>
 
           <span>AI Website Builder</span>
 
-          <span className="ml-1 h-1.5 w-1.5 rounded-full bg-green-400" />
-          <span className="text-xs text-green-400/80">Local AI</span>
+          <span className="ml-1 h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
+
+          <span className="text-xs text-green-400/80">
+            Local AI
+          </span>
         </div>
 
         {/* Heading */}
+
         <h1 className="mx-auto max-w-[1000px] text-5xl font-bold leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-[82px]">
           Build websites
           <br />
-          <span className="bg-gradient-to-b from-white/55 to-white/20 bg-clip-text text-transparent">
+
+          <span className="bg-gradient-to-b from-white/70 via-white/45 to-white/20 bg-clip-text text-transparent">
             with just one prompt.
           </span>
         </h1>
@@ -208,27 +413,35 @@ export default function Home() {
           website for you in seconds.
         </p>
 
-        {/* Prompt Box */}
-        <form onSubmit={generateWebsite} className="mx-auto mt-12 max-w-[920px]">
+        {/* =========================================
+            PROMPT FORM
+        ========================================== */}
+
+        <form
+          onSubmit={generateWebsite}
+          className="mx-auto mt-12 max-w-[920px]"
+        >
           <div
-            className={`relative overflow-hidden rounded-2xl border bg-[#0d0d0f] text-left shadow-2xl transition-all ${
+            className={`relative overflow-hidden rounded-2xl border bg-[#0d0d0f] text-left shadow-2xl transition-all duration-500 ${
               loading
-                ? "border-white/20 shadow-[0_0_80px_rgba(255,255,255,0.06)]"
+                ? "border-white/20 shadow-[0_0_100px_rgba(255,255,255,0.07)]"
                 : "border-white/10 hover:border-white/15"
             }`}
           >
             {/* Prompt Header */}
+
             <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3">
               <div className="flex items-center gap-2 text-xs text-white/35">
                 <span className="text-base">✨</span>
-                Describe your website
+
+                <span>Describe your website</span>
               </div>
 
               {prompt.length > 0 && !loading && (
                 <button
                   type="button"
                   onClick={clearPrompt}
-                  className="text-xs text-white/25 transition hover:text-white/60"
+                  className="text-xs text-white/25 transition hover:text-white/70"
                 >
                   Clear
                 </button>
@@ -236,24 +449,35 @@ export default function Home() {
             </div>
 
             {/* Textarea */}
+
             <textarea
               id="prompt-box"
               value={prompt}
-              onChange={(e) =>
-                setPrompt(e.target.value.slice(0, maxLength))
-              }
+              onChange={(e) => {
+                setPrompt(e.target.value.slice(0, maxLength));
+                setError("");
+              }}
               onKeyDown={(e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                if (
+                  (e.ctrlKey || e.metaKey) &&
+                  e.key.toLowerCase() === "enter"
+                ) {
                   e.preventDefault();
-                  generateWebsite();
+
+                  if (!loading && prompt.trim()) {
+                    generateWebsite();
+                  }
                 }
               }}
               disabled={loading}
+              maxLength={maxLength}
+              aria-label="Describe the website you want to create"
               placeholder="e.g. Create a premium coffee shop website with a dark brown theme, menu, reviews and contact section..."
-              className="min-h-[190px] w-full resize-none bg-transparent px-6 py-6 text-[15px] leading-7 text-white outline-none placeholder:text-white/20 disabled:opacity-50 sm:min-h-[205px] sm:px-7"
+              className="min-h-[190px] w-full resize-none bg-transparent px-6 py-6 text-[15px] leading-7 text-white outline-none placeholder:text-white/20 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[205px] sm:px-7"
             />
 
             {/* Toolbar */}
+
             <div className="flex flex-col gap-4 border-t border-white/[0.07] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <div className="flex items-center gap-3">
                 <span
@@ -274,7 +498,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={!prompt.trim() || loading}
-                className="flex min-w-[150px] items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black transition hover:-translate-y-0.5 hover:bg-white/90 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/25 disabled:hover:translate-y-0"
+                className="flex min-w-[150px] items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black shadow-[0_8px_30px_rgba(255,255,255,0.08)] transition duration-300 hover:-translate-y-0.5 hover:bg-white/90 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/25 disabled:shadow-none disabled:hover:translate-y-0"
               >
                 {loading ? (
                   <>
@@ -290,13 +514,20 @@ export default function Home() {
               </button>
             </div>
 
-            {/* Loading Progress */}
+            {/* =========================================
+                LOADING PROGRESS
+            ========================================== */}
+
             {loading && (
               <div className="border-t border-white/[0.06] px-6 py-5">
                 <div className="mb-4 flex items-center justify-between">
-                  <span className="text-xs font-medium text-white/70">
-                    {loadingSteps[loadingStep].title}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
+
+                    <span className="text-xs font-medium text-white/70">
+                      {loadingSteps[loadingStep].title}
+                    </span>
+                  </div>
 
                   <span className="text-xs text-white/25">
                     {loadingStep + 1}/{loadingSteps.length}
@@ -324,39 +555,41 @@ export default function Home() {
           </div>
 
           {/* Error */}
+
           {error && (
-            <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-left text-sm text-red-300">
-              {error}
+            <div
+              role="alert"
+              className="mt-4 flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-left text-sm text-red-300"
+            >
+              <span className="mt-0.5">⚠</span>
+
+              <span className="leading-6">{error}</span>
             </div>
           )}
         </form>
 
-        {/* Quick Suggestions */}
+        {/* =========================================
+            QUICK SUGGESTIONS
+        ========================================== */}
+
         <div className="mx-auto mt-7 flex max-w-[920px] flex-wrap justify-center gap-2">
-          {[
-            "Coffee shop",
-            "SaaS startup",
-            "Restaurant",
-            "Portfolio",
-            "E-commerce",
-          ].map((item) => (
+          {quickSuggestions.map((item) => (
             <button
               key={item}
               type="button"
               disabled={loading}
-              onClick={() =>
-                useTemplate(
-                  `Create a premium modern ${item.toLowerCase()} website with beautiful UI, responsive design, impressive hero section, professional sections, animations and footer.`
-                )
-              }
-              className="rounded-full border border-white/[0.08] bg-white/[0.02] px-4 py-2 text-xs text-white/40 transition hover:border-white/15 hover:bg-white/[0.05] hover:text-white/75 disabled:opacity-30"
+              onClick={() => useSuggestion(item)}
+              className="rounded-full border border-white/[0.08] bg-white/[0.02] px-4 py-2 text-xs text-white/40 transition duration-300 hover:border-white/15 hover:bg-white/[0.05] hover:text-white/75 disabled:cursor-not-allowed disabled:opacity-30"
             >
               {item}
             </button>
           ))}
         </div>
 
-        {/* Quick Start */}
+        {/* =========================================
+            QUICK START
+        ========================================== */}
+
         <div className="mx-auto mt-24 max-w-[1050px]">
           <div className="mb-6 text-left">
             <div className="text-sm font-medium text-white/75">
@@ -375,9 +608,9 @@ export default function Home() {
                 type="button"
                 disabled={loading}
                 onClick={() => useTemplate(item.prompt)}
-                className="group rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-left transition duration-300 hover:-translate-y-1 hover:border-white/15 hover:bg-white/[0.045] disabled:opacity-30"
+                className="group rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-left transition duration-300 hover:-translate-y-1 hover:border-white/15 hover:bg-white/[0.045] disabled:cursor-not-allowed disabled:opacity-30"
               >
-                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.06] text-xl transition group-hover:bg-white/10">
+                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.06] text-xl transition duration-300 group-hover:bg-white/10 group-hover:scale-105">
                   {item.icon}
                 </div>
 
@@ -393,7 +626,10 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Features */}
+        {/* =========================================
+            FEATURES
+        ========================================== */}
+
         <div className="mx-auto mt-24 max-w-[950px] overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.015]">
           <div className="grid grid-cols-1 sm:grid-cols-3">
             <Feature
@@ -416,7 +652,46 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Bottom CTA */}
+        {/* =========================================
+            HOW IT WORKS
+        ========================================== */}
+
+        <div className="mx-auto mt-24 max-w-[950px]">
+          <div className="mb-10 text-center">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/25">
+              Simple workflow
+            </p>
+
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/80 sm:text-3xl">
+              From idea to website.
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <ProcessCard
+              number="01"
+              title="Describe"
+              text="Tell the AI what kind of website you want."
+            />
+
+            <ProcessCard
+              number="02"
+              title="Generate"
+              text="Local AI creates the complete HTML, CSS and JavaScript."
+            />
+
+            <ProcessCard
+              number="03"
+              title="Preview"
+              text="Your finished website opens instantly in the preview."
+            />
+          </div>
+        </div>
+
+        {/* =========================================
+            BOTTOM CTA
+        ========================================== */}
+
         <div className="mx-auto mt-24 max-w-[700px]">
           <p className="text-sm text-white/25">
             Your idea → AI design → Real website
@@ -429,15 +704,37 @@ export default function Home() {
           <p className="mt-3 text-sm leading-6 text-white/30">
             No templates to manually edit. Just describe what you want.
           </p>
+
+          <button
+            type="button"
+            onClick={() => {
+              document
+                .getElementById("prompt-box")
+                ?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "center",
+                });
+
+              setTimeout(() => {
+                document.getElementById("prompt-box")?.focus();
+              }, 400);
+            }}
+            className="mt-7 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black transition duration-300 hover:-translate-y-0.5 hover:bg-white/90"
+          >
+            Start Building
+          </button>
         </div>
       </section>
 
-      {/* Footer */}
+      {/* =========================================
+          FOOTER
+      ========================================== */}
+
       <footer className="relative z-10 border-t border-white/[0.07]">
         <div className="mx-auto flex max-w-[1500px] flex-col items-center justify-between gap-3 px-6 py-7 text-xs text-white/25 sm:flex-row lg:px-10">
           <div>© 2026 WebBuilder. Built with AI.</div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-wrap justify-center gap-4">
             <span>AI Powered</span>
             <span>•</span>
             <span>Local AI</span>
@@ -449,6 +746,10 @@ export default function Home() {
     </main>
   );
 }
+
+/* =========================================
+   FEATURE COMPONENT
+========================================= */
 
 function Feature({
   icon,
@@ -465,9 +766,49 @@ function Feature({
         {icon}
       </div>
 
-      <div className="text-sm font-medium text-white/75">{title}</div>
+      <div className="text-sm font-medium text-white/75">
+        {title}
+      </div>
 
-      <div className="mt-2 text-xs leading-5 text-white/30">{text}</div>
+      <div className="mt-2 text-xs leading-5 text-white/30">
+        {text}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================
+   PROCESS CARD
+========================================= */
+
+function ProcessCard({
+  number,
+  title,
+  text,
+}: {
+  number: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="group rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 text-left transition duration-300 hover:-translate-y-1 hover:border-white/15 hover:bg-white/[0.035]">
+      <div className="mb-8 flex items-center justify-between">
+        <span className="text-xs font-medium tracking-[0.15em] text-white/25">
+          STEP
+        </span>
+
+        <span className="text-xs text-white/20">
+          {number}
+        </span>
+      </div>
+
+      <h3 className="text-sm font-semibold text-white/75">
+        {title}
+      </h3>
+
+      <p className="mt-2 text-xs leading-5 text-white/30">
+        {text}
+      </p>
     </div>
   );
 }

@@ -1,136 +1,491 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(request: NextRequest) {
-  try {
-    const { prompt } = await request.json();
+const MODEL = "qwen2.5-coder:7b";
+const OLLAMA_URL = "http://localhost:11434/api/generate";
 
-    if (!prompt || !prompt.trim()) {
+const SYSTEM_PROMPT = `
+You are an elite senior frontend engineer, web designer and UI/UX designer.
+
+Create a complete premium production-quality website from the user's request.
+
+The website will be rendered directly inside an iframe using srcDoc.
+
+ABSOLUTE RULES:
+
+- Return ONLY one complete HTML document.
+- Start EXACTLY with <!DOCTYPE html>
+- End EXACTLY with </html>
+- No Markdown.
+- No code fences.
+- No explanations.
+- No JSON.
+- No React.
+- No JSX.
+- No Next.js.
+- No TypeScript.
+- No imports.
+- No external JavaScript libraries.
+- No npm packages.
+- Use only HTML, CSS and vanilla JavaScript.
+- Everything must be inside ONE HTML document.
+
+HTML structure:
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>...</title>
+<meta name="description" content="...">
+<style>
+...
+</style>
+</head>
+<body>
+...
+<script>
+...
+</script>
+</body>
+</html>
+
+DESIGN:
+
+Create a real commercial-quality website.
+
+Use:
+
+- premium typography
+- strong visual hierarchy
+- generous whitespace
+- modern CSS Grid and Flexbox
+- responsive layouts
+- CSS variables
+- polished buttons
+- elegant cards
+- subtle borders
+- gradients when appropriate
+- shadows
+- hover effects
+- micro interactions
+- scroll reveal animations
+- professional navigation
+- mobile navigation
+
+Do NOT create a beginner HTML template.
+
+Do NOT use:
+
+- Lorem ipsum
+- placeholder.com
+- via.placeholder.com
+- fake image URLs
+- broken image URLs
+- generic random content
+- float layouts
+- tables for layout
+
+IMAGES:
+
+When images improve the design, use direct Unsplash images.
+
+Every image must have a meaningful alt attribute.
+
+Use object-fit: cover.
+
+Do not depend on image URLs that are likely to be broken.
+
+TYPOGRAPHY:
+
+Choose typography appropriate for the brand.
+
+You may use Google Fonts through CSS @import when useful.
+
+Possible fonts:
+
+Inter
+Manrope
+DM Sans
+Plus Jakarta Sans
+Space Grotesk
+Playfair Display
+Cormorant Garamond
+
+Choose the typography based on the user's business.
+
+COLOR:
+
+Create a deliberate color system using CSS variables.
+
+Example:
+
+:root {
+  --bg: #...;
+  --surface: #...;
+  --text: #...;
+  --muted: #...;
+  --accent: #...;
+  --border: #...;
+}
+
+Choose colors appropriate to the user's request.
+
+LAYOUT:
+
+Use responsive containers.
+
+Use:
+
+max-width
+margin auto
+padding
+grid
+flexbox
+
+Create visual variation between sections.
+
+NAVBAR:
+
+Create a professional responsive navbar.
+
+Desktop:
+- logo
+- navigation
+- CTA
+
+Mobile:
+- hamburger
+- mobile menu
+
+HERO:
+
+Create an impressive hero section.
+
+Include:
+
+- strong headline
+- supporting text
+- primary CTA
+- secondary CTA when useful
+- visual/image
+- decorative elements when appropriate
+
+SECTIONS:
+
+Only include sections relevant to the user's request.
+
+Possible sections:
+
+- About
+- Features
+- Services
+- Products
+- Menu
+- Pricing
+- Statistics
+- Portfolio
+- Gallery
+- Testimonials
+- FAQ
+- Contact
+- Newsletter
+- CTA
+- Footer
+
+Do not blindly include every section.
+
+CONTENT:
+
+Generate realistic content based on the user's request.
+
+If the user gives a short prompt, infer a complete professional website concept.
+
+For example, if the user says "coffee shop", create a complete premium coffee brand rather than a simple page.
+
+INTERACTIONS:
+
+Use vanilla JavaScript only when useful.
+
+Possible:
+
+- mobile navigation
+- smooth scrolling
+- FAQ accordion
+- tabs
+- modal
+- gallery interaction
+- form success state
+- scroll reveal
+- sticky navbar
+
+Forms should not actually send data to a server.
+
+Instead show a friendly client-side success message.
+
+RESPONSIVE:
+
+The website MUST work at:
+
+1440px
+1200px
+1024px
+768px
+480px
+390px
+320px
+
+Use media queries.
+
+Prevent horizontal scrolling.
+
+Use:
+
+html,
+body {
+  overflow-x: hidden;
+}
+
+ACCESSIBILITY:
+
+Use:
+
+- semantic HTML
+- proper heading hierarchy
+- labels
+- alt text
+- accessible buttons
+- aria-label where appropriate
+- keyboard-friendly controls
+- good contrast
+
+SEO:
+
+Include:
+
+<title>
+<meta name="description">
+
+FINAL CHECK BEFORE OUTPUT:
+
+Make sure:
+
+1. HTML is complete.
+2. CSS is inside <style>.
+3. JavaScript is inside <script>.
+4. No Markdown.
+5. No code fences.
+6. No explanation.
+7. Starts with <!DOCTYPE html>.
+8. Ends with </html>.
+9. Website is responsive.
+10. Website looks premium.
+
+Return ONLY the final HTML.
+`;
+
+function cleanHTML(raw: string): string {
+  let html = raw.trim();
+
+  // Remove markdown fences if model ignores instruction.
+  html = html.replace(/^```html\s*/i, "");
+  html = html.replace(/^```HTML\s*/i, "");
+  html = html.replace(/^```\s*/i, "");
+  html = html.replace(/\s*```$/i, "");
+
+  html = html.trim();
+
+  const doctypeIndex = html
+    .toLowerCase()
+    .indexOf("<!doctype html>");
+
+  if (doctypeIndex !== -1) {
+    html = html.slice(doctypeIndex);
+  } else {
+    const htmlIndex = html
+      .toLowerCase()
+      .indexOf("<html");
+
+    if (htmlIndex !== -1) {
+      html =
+        "<!DOCTYPE html>\n" +
+        html.slice(htmlIndex);
+    }
+  }
+
+  const closingIndex = html
+    .toLowerCase()
+    .lastIndexOf("</html>");
+
+  if (closingIndex !== -1) {
+    html = html.slice(
+      0,
+      closingIndex + "</html>".length
+    );
+  }
+
+  return html.trim();
+}
+
+function isValidHTML(html: string): boolean {
+  const lower = html.toLowerCase();
+
+  return (
+    lower.startsWith("<!doctype html>") &&
+    lower.includes("<html") &&
+    lower.includes("<head") &&
+    lower.includes("<body") &&
+    lower.includes("</body>") &&
+    lower.endsWith("</html>")
+  );
+}
+
+export async function POST(
+  request: NextRequest
+) {
+  try {
+    const body = await request.json();
+
+    const prompt =
+      typeof body?.prompt === "string"
+        ? body.prompt.trim()
+        : "";
+
+    if (!prompt) {
       return NextResponse.json(
-        { error: "Prompt is required" },
+        {
+          error: "Prompt is required.",
+        },
         { status: 400 }
       );
     }
 
-    const systemPrompt = `
-You are an expert senior frontend developer and UI/UX designer.
+    if (prompt.length > 4000) {
+      return NextResponse.json(
+        {
+          error:
+            "Prompt is too long. Maximum 4000 characters.",
+        },
+        { status: 400 }
+      );
+    }
 
-Your job is to generate a complete, beautiful, production-quality website from the user's description.
+    const finalPrompt = `
+${SYSTEM_PROMPT}
 
-STRICT OUTPUT RULES:
-- Return ONLY the HTML document.
-- Start directly with <!DOCTYPE html>
-- NEVER use markdown.
-- NEVER use triple backticks.
-- NEVER write explanations before or after the HTML.
-- Include all CSS inside a <style> tag.
-- Include JavaScript inside a <script> tag when useful.
-- The result must work by directly placing the HTML inside an iframe srcDoc.
-- Do not use React.
-- Do not use Next.js components.
-- Use pure HTML, CSS and JavaScript.
-- Make the website fully responsive.
-- Use modern CSS.
-- Use CSS variables.
-- Use smooth animations and hover effects.
-- Use professional typography.
-- Use rounded cards, shadows, gradients and spacing where appropriate.
-- Create a visually impressive website, not a basic HTML template.
-- Make the website look like a real professional commercial website.
+==================================================
+USER WEBSITE REQUEST
+==================================================
 
-IMPORTANT IMAGE RULE:
-Do NOT use placeholder.com.
-Do NOT use via.placeholder.com.
-Do NOT use broken or fake image URLs.
+${prompt}
 
-If images are required, use reliable Unsplash Source URLs such as:
-https://images.unsplash.com/photo-1495474472287-4d71bcdd2085
-https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb
-https://images.unsplash.com/photo-1445116572660-236099ec97a0
+==================================================
+FINAL OUTPUT
+==================================================
 
-Always add meaningful alt text.
+Generate the complete website now.
 
-WEBSITE QUALITY:
-- Header/navbar
-- Hero section
-- Main content sections
-- Attractive cards
-- Call-to-action buttons
-- Responsive mobile layout
-- Footer
-- Consistent color palette
-- Professional spacing
-- Good visual hierarchy
-- Accessible buttons and links
+Remember:
 
-If the user asks for a restaurant, coffee shop, portfolio, SaaS, store or business website, create realistic content relevant to that business.
+START:
+<!DOCTYPE html>
 
-Do not mention that you are an AI.
-Do not explain your code.
+END:
+</html>
+
+Return NOTHING except the HTML document.
 `;
 
-    const response = await fetch(
-      "http://localhost:11434/api/generate",
+    const ollamaResponse = await fetch(
+      OLLAMA_URL,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "qwen2.5-coder:7b",
-          prompt: `${systemPrompt}
-
-USER REQUEST:
-${prompt}
-
-Generate the complete website now.`,
+          model: MODEL,
+          prompt: finalPrompt,
           stream: false,
+
           options: {
-            temperature: 0.4,
-            num_ctx: 8192,
+            temperature: 0.25,
+            top_p: 0.9,
+            num_ctx: 16384,
+            repeat_penalty: 1.05,
           },
         }),
       }
     );
 
-    if (!response.ok) {
-      throw new Error("Ollama request failed");
+    if (!ollamaResponse.ok) {
+      const errorText =
+        await ollamaResponse.text();
+
+      console.error(
+        "Ollama error:",
+        ollamaResponse.status,
+        errorText
+      );
+
+      return NextResponse.json(
+        {
+          error: `Ollama error: HTTP ${ollamaResponse.status}`,
+        },
+        { status: 500 }
+      );
     }
 
-    const data = await response.json();
+    const data =
+      await ollamaResponse.json();
 
-    let html = data.response || "";
+    const raw =
+      typeof data?.response === "string"
+        ? data.response
+        : "";
 
-    // Remove accidental markdown code fences
-    html = html
-      .replace(/^```html\s*/i, "")
-      .replace(/^```\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
+    let html = cleanHTML(raw);
 
-    // If model accidentally puts text before <!DOCTYPE html>
-    const doctypeIndex = html.toLowerCase().indexOf("<!doctype html>");
-
-    if (doctypeIndex > 0) {
-      html = html.slice(doctypeIndex);
+    if (!html) {
+      return NextResponse.json(
+        {
+          error:
+            "AI returned an empty response. Please try again.",
+        },
+        { status: 502 }
+      );
     }
 
-    // If model didn't use doctype but returned <html>
-    const htmlIndex = html.toLowerCase().indexOf("<html");
+    if (!isValidHTML(html)) {
+      console.error(
+        "Invalid generated HTML:",
+        html.slice(0, 1000)
+      );
 
-    if (doctypeIndex === -1 && htmlIndex > 0) {
-      html = html.slice(htmlIndex);
+      return NextResponse.json(
+        {
+          error:
+            "AI generated incomplete HTML. Try a shorter prompt or generate again.",
+        },
+        { status: 502 }
+      );
     }
 
     return NextResponse.json({
       html,
     });
   } catch (error) {
-    console.error("Generation error:", error);
+    console.error(
+      "Generation error:",
+      error
+    );
 
     return NextResponse.json(
       {
         error:
-          "Failed to generate website. Make sure Ollama is running on localhost:11434.",
+          error instanceof Error
+            ? error.message
+            : "Failed to generate website. Make sure Ollama is running.",
       },
       { status: 500 }
     );

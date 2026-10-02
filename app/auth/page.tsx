@@ -9,7 +9,11 @@ type Mode = "login" | "signup";
 function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [mode, setMode] = useState<Mode>("login");
+
+  // ✅ Read mode from URL immediately — no flash
+  const urlMode = searchParams.get("mode");
+  const [mode, setMode] = useState<Mode>(urlMode === "signup" ? "signup" : "login");
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,16 +23,12 @@ function AuthForm() {
 
   useEffect(() => {
     seedAdmin();
-    // Read ?mode=login or ?mode=signup from URL
-    const urlMode = searchParams.get("mode");
-    if (urlMode === "signup") setMode("signup");
-    else setMode("login");
     // If already logged in, redirect
     const session = getSession();
     if (session) {
       router.replace(session.role === "admin" ? "/admin" : "/");
     }
-  }, [router, searchParams]);
+  }, [router]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

@@ -1,12 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { login, signup, seedAdmin, getSession } from "@/lib/auth";
 
 type Mode = "login" | "signup";
 
-export default function AuthPage() {
+function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>("login");
@@ -377,5 +377,13 @@ export default function AuthPage() {
         .auth-switch-btn:hover { color: #a5b4fc; }
       `}</style>
     </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "#060608" }} />}>
+      <AuthForm />
+    </Suspense>
   );
 }

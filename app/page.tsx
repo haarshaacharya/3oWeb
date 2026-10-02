@@ -83,11 +83,7 @@ export default function Home() {
   useEffect(() => {
     seedAdmin();
     const s = getSession();
-    if (!s) {
-      router.replace("/auth");
-      return;
-    }
-    setSession(s);
+    if (s) setSession(s);
     setAuthReady(true);
 
     try {

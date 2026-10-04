@@ -372,9 +372,9 @@ export default function Home() {
             aria-label="Go to home"
           >
             <img
-              src="/30logo.png"
+              src="/3ologo.png"
               alt="30web"
-              className="h-8 sm:h-9 w-auto object-contain transition duration-300 group-hover:scale-105"
+              className="h-8 sm:h-12 w-auto object-contain transition duration-300 group-hover:scale-105"
             />
           </button>
 
@@ -845,47 +845,31 @@ export default function Home() {
       ========================================== */}
 
       {/* =========================================
-          FOOTER (Webild-inspired with 30web Branding)
+          FOOTER (Dark Theme with 30logo.png)
       ========================================== */}
 
       <footer className="relative z-10 mt-28 px-4 pt-8 pb-14 sm:px-6 lg:px-10">
         <div className="mx-auto max-w-[1500px]">
-          {/* Main Footer Card - matching Image 3 design */}
-          <div className="relative overflow-hidden rounded-[32px] sm:rounded-[44px] bg-[#f4f4f5] px-6 pt-14 pb-14 shadow-2xl transition duration-500 sm:px-12 sm:pt-20 lg:px-20 lg:pb-16">
-            
-            {/* Ambient Blue Glow behind 30web (matching Webild style) */}
-            <div className="pointer-events-none absolute inset-x-0 top-10 flex justify-center">
-              <div className="h-56 w-[340px] sm:w-[520px] rounded-full bg-blue-500/25 blur-[75px]" />
+          {/* Main Footer Card - Single unified dark card */}
+          <div className="relative overflow-hidden rounded-[32px] sm:rounded-[44px] border border-white/[0.08] bg-[#070709] px-6 pt-16 pb-14 shadow-[0_20px_80px_rgba(0,0,0,0.8)] sm:px-12 sm:pt-20 lg:px-20 lg:pb-16">
+
+            {/* ── Center Logo (HD, large, sharp) ── */}
+            <div className="mb-14 flex w-full items-center justify-center sm:mb-20">
+              <img
+                src="/r3o.png"
+                alt="30web logo"
+                style={{
+                  imageRendering: "auto",
+                  WebkitFontSmoothing: "antialiased",
+                }}
+                className="w-[85%] sm:w-[80%] md:w-[78%] lg:w-[72%] max-w-[1100px] h-auto object-contain select-none transition-transform duration-500 hover:scale-[1.025]"
+              />
             </div>
 
-            {/* Giant Branded Logo Wordmark (30web with glowing blue orb) */}
-            <div className="relative mb-12 sm:mb-16 flex flex-col items-center justify-center text-center">
-              
-              {/* Top Badge */}
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.04] px-4 py-1.5 text-xs font-semibold text-neutral-600 backdrop-blur-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse" />
-                <span>Next-Gen AI Website Builder</span>
-              </div>
+            {/* ── 3 Columns Navigation ── */}
+            <div className="mx-auto grid max-w-[1100px] grid-cols-1 gap-8 border-t border-white/[0.08] pt-10 sm:grid-cols-3 sm:gap-12">
 
-              {/* The Giant "30web" Wordmark */}
-              <div className="relative inline-block select-none">
-                <h2 className="text-[clamp(4.2rem,19vw,15.5rem)] font-black tracking-[-0.06em] leading-none text-black">
-                  30web
-                </h2>
-
-                {/* Glowing Blue Specular Orb (Matching Image 3 on right side) */}
-                <div 
-                  className="pointer-events-none absolute -top-1 sm:-top-2 right-[17%] sm:right-[18%] h-6 w-6 sm:h-12 sm:w-12 rounded-full bg-gradient-to-tr from-blue-700 via-blue-500 to-sky-300 shadow-[0_0_25px_#2563eb,0_0_50px_#3b82f6]"
-                  style={{
-                    filter: "drop-shadow(0 0 16px rgba(59, 130, 246, 0.9))",
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* 3 Columns Navigation (Matching Image 3) */}
-            <div className="relative z-10 mx-auto grid max-w-[1100px] grid-cols-1 gap-8 border-t border-black/[0.08] pt-10 sm:grid-cols-3 sm:gap-12">
-              {/* Column 1: Product / Features */}
+              {/* Column 1: Product */}
               <div className="flex flex-col space-y-3.5 text-left">
                 {[
                   { label: "How It Works", target: "how-it-works" },
@@ -904,17 +888,15 @@ export default function Home() {
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }
                     }}
-                    className="group flex items-center gap-2 text-left text-sm sm:text-[15px] font-medium text-neutral-800 transition duration-200 hover:text-black hover:translate-x-1"
+                    className="group flex items-center gap-2 text-left text-sm sm:text-[15px] font-medium text-white/55 transition duration-200 hover:text-white hover:translate-x-1"
                   >
-                    <span className="text-neutral-400 font-bold transition duration-200 group-hover:text-blue-600">
-                      ›
-                    </span>
+                    <span className="text-white/25 font-bold transition duration-200 group-hover:text-white/70">›</span>
                     <span>{item.label}</span>
                   </button>
                 ))}
               </div>
 
-              {/* Column 2: Social / Community */}
+              {/* Column 2: Social */}
               <div className="flex flex-col space-y-3.5 text-left">
                 {[
                   { label: "X (Twitter)", href: "https://x.com" },
@@ -927,17 +909,15 @@ export default function Home() {
                     href={item.href}
                     target="_blank"
                     rel="noreferrer"
-                    className="group flex items-center gap-2 text-left text-sm sm:text-[15px] font-medium text-neutral-800 transition duration-200 hover:text-black hover:translate-x-1"
+                    className="group flex items-center gap-2 text-sm sm:text-[15px] font-medium text-white/55 transition duration-200 hover:text-white hover:translate-x-1"
                   >
-                    <span className="text-neutral-400 font-bold transition duration-200 group-hover:text-blue-600">
-                      ›
-                    </span>
+                    <span className="text-white/25 font-bold transition duration-200 group-hover:text-white/70">›</span>
                     <span>{item.label}</span>
                   </a>
                 ))}
               </div>
 
-              {/* Column 3: Legal / Support */}
+              {/* Column 3: Legal */}
               <div className="flex flex-col space-y-3.5 text-left">
                 {[
                   { label: "Privacy Policy", href: "#" },
@@ -948,11 +928,9 @@ export default function Home() {
                   <a
                     key={item.label}
                     href={item.href}
-                    className="group flex items-center gap-2 text-left text-sm sm:text-[15px] font-medium text-neutral-800 transition duration-200 hover:text-black hover:translate-x-1"
+                    className="group flex items-center gap-2 text-sm sm:text-[15px] font-medium text-white/55 transition duration-200 hover:text-white hover:translate-x-1"
                   >
-                    <span className="text-neutral-400 font-bold transition duration-200 group-hover:text-blue-600">
-                      ›
-                    </span>
+                    <span className="text-white/25 font-bold transition duration-200 group-hover:text-white/70">›</span>
                     <span>{item.label}</span>
                   </a>
                 ))}
@@ -960,10 +938,9 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Sub-Footer Info */}
+          {/* Sub-Footer */}
           <div className="mt-8 flex flex-col items-center justify-between gap-3 px-2 text-xs text-white/30 sm:flex-row">
             <div>© 2026 30web. Built with AI.</div>
-
             <div className="flex flex-wrap justify-center gap-4">
               <span>AI Powered</span>
               <span>•</span>

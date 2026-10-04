@@ -368,22 +368,14 @@ export default function Home() {
           <button
             type="button"
             onClick={() => router.push("/")}
-            className="group flex items-center gap-3"
-            aria-label="Go to WebBuilder home"
+            className="group flex items-center transition duration-300 hover:opacity-90"
+            aria-label="Go to home"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-sm font-black text-black shadow-[0_0_35px_rgba(255,255,255,0.08)] transition duration-300 group-hover:scale-105">
-              AI
-            </div>
-
-            <div className="text-left">
-              <div className="text-[17px] font-semibold tracking-tight">
-                WebBuilder
-              </div>
-
-              <div className="text-[11px] text-white/35">
-                AI Website Builder
-              </div>
-            </div>
+            <img
+              src="/30logo.png"
+              alt="30web"
+              className="h-8 sm:h-9 w-auto object-contain transition duration-300 group-hover:scale-105"
+            />
           </button>
 
           {/* Navbar right side */}
@@ -723,7 +715,7 @@ export default function Home() {
             FEATURES
         ========================================== */}
 
-        <div className="mx-auto mt-24 max-w-[950px] overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.015]">
+        <div id="features" className="mx-auto mt-24 max-w-[950px] overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.015]">
           <div className="grid grid-cols-1 sm:grid-cols-3">
             <Feature
               icon="⚡"
@@ -749,7 +741,7 @@ export default function Home() {
             HOW IT WORKS
         ========================================== */}
 
-        <div className="mx-auto mt-24 max-w-[950px]">
+        <div id="how-it-works" className="mx-auto mt-24 max-w-[950px]">
           <div className="mb-10 text-center">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/25">
               Simple workflow
@@ -801,20 +793,49 @@ export default function Home() {
           <button
             type="button"
             onClick={() => {
-              document
-                .getElementById("prompt-box")
-                ?.scrollIntoView({
+              const promptBox = document.getElementById("prompt-box");
+              if (promptBox) {
+                promptBox.scrollIntoView({
                   behavior: "smooth",
                   block: "center",
                 });
-
-              setTimeout(() => {
-                document.getElementById("prompt-box")?.focus();
-              }, 400);
+                setTimeout(() => {
+                  promptBox.focus();
+                }, 500);
+              } else {
+                window.scrollTo({
+                  top: 0,
+                  behavior: "smooth",
+                });
+              }
             }}
-            className="mt-7 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black transition duration-300 hover:-translate-y-0.5 hover:bg-white/90"
+            className="group relative mt-7 inline-flex items-center justify-center overflow-hidden rounded-full border border-white/60 bg-white px-7 py-3 text-sm font-semibold text-black shadow-lg transition-all duration-300 ease-out hover:border-white/30 hover:bg-black hover:text-white hover:shadow-[0_0_25px_rgba(255,255,255,0.18)] hover:-translate-y-0.5 active:scale-95"
           >
-            Start Building
+            {/* Left Dot (Image 2 style: visible by default, collapses on hover) */}
+            <span className="flex items-center justify-center overflow-hidden transition-all duration-300 ease-out w-2 mr-2.5 group-hover:w-0 group-hover:mr-0 group-hover:opacity-0 group-hover:scale-0 group-hover:-translate-x-2">
+              <span className="h-2 w-2 rounded-full bg-black shrink-0 transition-colors duration-300" />
+            </span>
+
+            {/* Button Text */}
+            <span className="font-semibold tracking-tight transition-colors duration-300 select-none">
+              Start Building
+            </span>
+
+            {/* Right Arrow (Image 3 style: hidden by default, expands and slides in on hover) */}
+            <span className="flex items-center justify-center overflow-hidden transition-all duration-300 ease-out w-0 ml-0 opacity-0 -translate-x-2 group-hover:w-4 group-hover:ml-2.5 group-hover:opacity-100 group-hover:translate-x-0">
+              <svg
+                className="h-4 w-4 shrink-0 stroke-[2.5]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M5 12h14" />
+                <path d="m13 6 6 6-6 6" />
+              </svg>
+            </span>
           </button>
         </div>
       </section>
@@ -823,16 +844,133 @@ export default function Home() {
           FOOTER
       ========================================== */}
 
-      <footer className="relative z-10 border-t border-white/[0.07]">
-        <div className="mx-auto flex max-w-[1500px] flex-col items-center justify-between gap-3 px-6 py-7 text-xs text-white/25 sm:flex-row lg:px-10">
-          <div>© 2026 WebBuilder. Built with AI.</div>
+      {/* =========================================
+          FOOTER (Webild-inspired with 30web Branding)
+      ========================================== */}
 
-          <div className="flex flex-wrap justify-center gap-4">
-            <span>AI Powered</span>
-            <span>•</span>
-            <span>Local AI</span>
-            <span>•</span>
-            <span>Ollama</span>
+      <footer className="relative z-10 mt-28 px-4 pt-8 pb-14 sm:px-6 lg:px-10">
+        <div className="mx-auto max-w-[1500px]">
+          {/* Main Footer Card - matching Image 3 design */}
+          <div className="relative overflow-hidden rounded-[32px] sm:rounded-[44px] bg-[#f4f4f5] px-6 pt-14 pb-14 shadow-2xl transition duration-500 sm:px-12 sm:pt-20 lg:px-20 lg:pb-16">
+            
+            {/* Ambient Blue Glow behind 30web (matching Webild style) */}
+            <div className="pointer-events-none absolute inset-x-0 top-10 flex justify-center">
+              <div className="h-56 w-[340px] sm:w-[520px] rounded-full bg-blue-500/25 blur-[75px]" />
+            </div>
+
+            {/* Giant Branded Logo Wordmark (30web with glowing blue orb) */}
+            <div className="relative mb-12 sm:mb-16 flex flex-col items-center justify-center text-center">
+              
+              {/* Top Badge */}
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.04] px-4 py-1.5 text-xs font-semibold text-neutral-600 backdrop-blur-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse" />
+                <span>Next-Gen AI Website Builder</span>
+              </div>
+
+              {/* The Giant "30web" Wordmark */}
+              <div className="relative inline-block select-none">
+                <h2 className="text-[clamp(4.2rem,19vw,15.5rem)] font-black tracking-[-0.06em] leading-none text-black">
+                  30web
+                </h2>
+
+                {/* Glowing Blue Specular Orb (Matching Image 3 on right side) */}
+                <div 
+                  className="pointer-events-none absolute -top-1 sm:-top-2 right-[17%] sm:right-[18%] h-6 w-6 sm:h-12 sm:w-12 rounded-full bg-gradient-to-tr from-blue-700 via-blue-500 to-sky-300 shadow-[0_0_25px_#2563eb,0_0_50px_#3b82f6]"
+                  style={{
+                    filter: "drop-shadow(0 0 16px rgba(59, 130, 246, 0.9))",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* 3 Columns Navigation (Matching Image 3) */}
+            <div className="relative z-10 mx-auto grid max-w-[1100px] grid-cols-1 gap-8 border-t border-black/[0.08] pt-10 sm:grid-cols-3 sm:gap-12">
+              {/* Column 1: Product / Features */}
+              <div className="flex flex-col space-y-3.5 text-left">
+                {[
+                  { label: "How It Works", target: "how-it-works" },
+                  { label: "Features", target: "features" },
+                  { label: "FAQ", target: "prompt-box" },
+                  { label: "Pricing", target: "prompt-box" },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById(item.target);
+                      if (el) {
+                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                      } else {
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }
+                    }}
+                    className="group flex items-center gap-2 text-left text-sm sm:text-[15px] font-medium text-neutral-800 transition duration-200 hover:text-black hover:translate-x-1"
+                  >
+                    <span className="text-neutral-400 font-bold transition duration-200 group-hover:text-blue-600">
+                      ›
+                    </span>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Column 2: Social / Community */}
+              <div className="flex flex-col space-y-3.5 text-left">
+                {[
+                  { label: "X (Twitter)", href: "https://x.com" },
+                  { label: "LinkedIn", href: "https://linkedin.com" },
+                  { label: "Instagram", href: "https://instagram.com" },
+                  { label: "Discord", href: "https://discord.com" },
+                ].map((item) => (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group flex items-center gap-2 text-left text-sm sm:text-[15px] font-medium text-neutral-800 transition duration-200 hover:text-black hover:translate-x-1"
+                  >
+                    <span className="text-neutral-400 font-bold transition duration-200 group-hover:text-blue-600">
+                      ›
+                    </span>
+                    <span>{item.label}</span>
+                  </a>
+                ))}
+              </div>
+
+              {/* Column 3: Legal / Support */}
+              <div className="flex flex-col space-y-3.5 text-left">
+                {[
+                  { label: "Privacy Policy", href: "#" },
+                  { label: "Terms of Service", href: "#" },
+                  { label: "Cookie Policy", href: "#" },
+                  { label: "Support", href: "mailto:support@30web.ai" },
+                ].map((item) => (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    className="group flex items-center gap-2 text-left text-sm sm:text-[15px] font-medium text-neutral-800 transition duration-200 hover:text-black hover:translate-x-1"
+                  >
+                    <span className="text-neutral-400 font-bold transition duration-200 group-hover:text-blue-600">
+                      ›
+                    </span>
+                    <span>{item.label}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Sub-Footer Info */}
+          <div className="mt-8 flex flex-col items-center justify-between gap-3 px-2 text-xs text-white/30 sm:flex-row">
+            <div>© 2026 30web. Built with AI.</div>
+
+            <div className="flex flex-wrap justify-center gap-4">
+              <span>AI Powered</span>
+              <span>•</span>
+              <span>Local AI</span>
+              <span>•</span>
+              <span>Ollama</span>
+            </div>
           </div>
         </div>
       </footer>
